@@ -1,0 +1,203 @@
+<script>
+var $R=250;
+var $style0="position:absolute;left:10px;top:10px;width:"+($R*2)+"px;"+"height:"+($R*2)+"px";
+
+var $r=10;
+var $style1="position:absolute;text-align:center;vertical-align:middle;cursor:pointer;"+"width:"+($r*2)+"px;"+"height:"+($r*2)+"px;"+"border-radius:"+($r*2)+"px;"+"border:solid 1px";
+var $style2="position:absolute;cursor:pointer;"+"width:4px;"+"height:19px;"+"border:solid 3px;";
+
+document.write("<div id='container' style='position:absolute;left:0px;top:0px;bottom:0px;right:0px' onmousemove=f_mousemove(event) onmouseup=f_mouseup(event)></div>")
+
+f_start(3);
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function f_start($value){
+	var $picker=$table="";
+	for(var $i=0;$i<$value;$i++){
+		$picker="<div id='picker"+$i+"' style='"+$style1+"' onmousedown=f_mousedown(this,event)>"+($i+1)+"</div>"+$picker;
+		$table=$table+
+			"<tr style='text-align:center'>"+
+				"<td>"+($i+1)+"</td>"+
+				"<td id='pickerfrom"+$i+"' style='width:120px'></td>"+
+				"<td id='td"+$i+"' style='width:400px'>"+
+					"<div id='pick"+$i+"' style='"+$style2+"' onmousedown=f_mousedown(this,event)></div>"+
+					"<canvas id='slider"+$i+"' width=400 height=25></canvas>"+
+				"</td>"+
+				"<td id='pickfrom"+$i+"' style='width:120px'></td>"+
+			"</tr>";
+	}
+
+	var $option="";
+	for(var $i=1;$i<=20;$i++){
+		$option=$option+"<option value="+$i+($i==$value?" selected":"")+">"+$i+"</option>";
+	}
+	
+	$table=
+		"<table id='table' border=1 style='border-collapse:collapse;position:absolute;left:550px;top:10px;font:11px verdana'>"+
+			"<tr style='height:25px;padding:4px'>"+
+				"<th><select id='selector' onchange=f_start(this.value)>"+$option+"</select></th>"+
+				"<th>RGB / HSL</th>"+
+				"<th>Lightness</th>"+
+				"<th>RGB / HSL</th>"+
+			"</tr>"+
+			$table+
+		"</table>";
+
+	document.getElementById("container").innerHTML=
+		"<canvas id='wheel' style='"+$style0+"' width="+($R*2)+" height="+($R*2)+"></canvas>"+
+		$picker+
+		$table;
+
+	var $img=new Image();
+	$img.src="color_wheel_730.png";
+	$img.onload=function(){document.getElementById("wheel").getContext("2d").drawImage($img,0,0,$R*2,$R*2);}
+
+	var $i=0;
+	setInterval(function(){
+		f_output($i,$R/1.1,document.getElementById("wheel"));
+		$i++;
+		if($i==$this.value)clearInterval();
+	},1);
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+var $p=null;
+function f_mousedown($this,$event){$p=$this;}
+function f_mouseup($event){$p=null;}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function f_mousemove($event){
+	if($p.id.indexOf("picker")!=-1){
+		f_picker_position($p,$event,document.getElementById("wheel"),$R,$r);
+	}
+	else if($p.id.indexOf("pick")!=-1){
+		f_pick_position($p,$event);
+	}
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function f_picker_position($picker,$event,$wheel,$R,$r){
+	var $X=$event.clientX-$wheel.offsetLeft-$R;	//jarak horizontal (X) posisi kursor ke pusat lingkaran
+	var $Y=-$event.clientY+$wheel.offsetTop+$R;	//jarak vertikal (Y) posisi kursor ke pusat lingkaran
+	var $Z=Math.sqrt(Math.pow($X,2)+Math.pow($Y,2));	//jarak posisi kursor ke pusat lingkaran
+	var $deg=Math.abs(Math.acos($X/$Z)*180/Math.PI-($Y<0?360:0));	//sudut yang dibentuk oleh garis X dan Z
+	
+	if($Z>$R){
+/*		jika posisi lingkaran kecil lebih panjang dari jari-jari lingkaran (lingkaran kecil berada di luar lingkaran)
+		maka posisi lingkaran kecil yang diseret oleh kursor harus diubah menjadi sama dengan jari-jari (Z = R)
+
+		supaya Z sama dengan R maka cari nilai X dan Y
+		hitung ulang nilai Z berdasarkan nilai X dan Y (gunakan rumus phytagoras, pelajaran SMP)
+		
+		$X = ?$R*Math.cos($deg*Math.PI/180);
+		$Y = ?Math.sign($Y)*$R*Math.sin($deg*Math.PI/180);
+		$Z = ?Math.sqrt(Math.pow(Math.abs($X),2)+Math.pow(Math.abs($Y),2));
+*/
+
+	$X = $R*Math.cos($deg*Math.PI/180);
+	$Y = Math.sign($Y)*$R*Math.sin($deg*Math.PI/180);
+	$Z = Math.sqrt(Math.pow(Math.abs($X),2)+Math.pow(Math.abs($Y),2));
+	}
+
+	for(var $i=0;$i<document.getElementById("selector").value;$i++){
+		f_output($i,$Z,$wheel,$deg,$picker.id.replace("picker",""))
+	}
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function f_pick_position($p,$event){
+	var $i=$p.id.replace("pick","");
+	var $td=document.getElementById("td"+$i);
+	var $min=$td.offsetLeft;
+	var $max=$td.offsetLeft+$td.offsetWidth-4;
+	var $x=$event.clientX-document.getElementById("table").offsetLeft;
+	$p.style.left=($x>=$min&&$x<=$max?$x:($x<$min?$min:$max))+"px";
+	var $rgb=document.getElementById("slider"+$i).getContext("2d").getImageData($p.offsetLeft-$td.offsetLeft,$p.offsetTop-$td.offsetTop,1,1).data;
+	var $hsl=f_rgb2hsl($rgb[0],$rgb[1],$rgb[2]);
+
+	document.getElementById("pickfrom"+$i).innerHTML=$rgb[0]+", "+$rgb[1]+", "+$rgb[2]+"<br>"+$hsl[0]+", "+$hsl[1]+", "+$hsl[2];
+	document.getElementById("pickfrom"+$i).style.backgroundColor="rgb("+$rgb[0]+", "+$rgb[1]+", "+$rgb[2]+")";
+	document.getElementById("pickfrom"+$i).style.color=($hsl[2]<50?"white":"black");
+	document.getElementById("pick"+$i).style.borderColor=($hsl[2]<50?"white":"black");
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function f_output($i,$Z,$wheel,$deg=0,$picker_select=-1){
+	if($picker_select==-1){var $d=360/document.getElementById("selector").value*$i;}
+	else{var $d=$deg+360/document.getElementById("selector").value*($i-$picker_select);}
+
+	var $x=$Z*Math.cos($d*Math.PI/180);
+	var $y=$Z*Math.sin($d*Math.PI/180);
+	var $left=$x+$wheel.offsetLeft+$R-$r;
+	var $top=-$y+$wheel.offsetTop+$R-$r;
+	
+	var $rgb=$wheel.getContext("2d").getImageData($left+$r-$wheel.offsetLeft,$top+$r-$wheel.offsetTop,1,1).data;
+	var $hsl=f_rgb2hsl($rgb[0],$rgb[1],$rgb[2]);
+
+	document.getElementById("picker"+$i).style.left=$left+"px";
+	document.getElementById("picker"+$i).style.top=$top+"px";
+
+	document.getElementById("pickerfrom"+$i).style.backgroundColor="rgb("+$rgb+")";
+	document.getElementById("pickerfrom"+$i).innerHTML=$rgb[0]+", "+$rgb[1]+", "+$rgb[2]+"<br>"+$hsl[0]+", "+$hsl[1]+", "+$hsl[2];
+
+	document.getElementById("pickfrom"+$i).style.backgroundColor="rgb("+$rgb+")";
+	document.getElementById("pickfrom"+$i).innerHTML=$rgb[0]+", "+$rgb[1]+", "+$rgb[2]+"<br>"+$hsl[0]+", "+$hsl[1]+", "+$hsl[2];
+
+	var $ctx=document.getElementById("slider"+$i).getContext("2d");
+	var $grd=$ctx.createLinearGradient(0,0,400,0);
+	$grd.addColorStop(0,"black");
+	$grd.addColorStop($hsl[2]/100,"rgb("+$rgb+")");
+	$grd.addColorStop(1,"white");
+	$ctx.fillStyle=$grd;
+	$ctx.fillRect(0,0,400,25);
+	document.getElementById("pick"+$i).style.left=document.getElementById("td"+$i).offsetLeft+$hsl[2]/100*400+"px";
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function f_rgb2hsl($r,$g,$b){
+	$r/=255;
+	$g/=255;
+	$b/=255;
+	
+	var $max=Math.max($r,$g,$b);
+	var $min=Math.min($r,$g,$b);
+	var $d=$max-$min;
+	var $h=$s=$l=0;
+	
+	if($d==0)$h=0;
+	else if($max==$r)$h=(($g-$b)/$d)%6;
+	else if($max==$g)$h=($b-$r)/$d+2;
+	else $h=($r-$g)/$d+4;
+	
+	$h*=60;
+	if($h<0)$h+=360;
+	$l=($max+$min)/2;
+	if($d==0)$s=0;else $s=$d/(1-Math.abs(2*$l-1));
+	
+	$s*=100;
+	$l*=100;
+	
+	$h=$h.toFixed(0);
+	$s=$s.toFixed(2);
+	$l=$l.toFixed(2);
+
+	return [$h,$s,$l];
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function f_hsl2rgb(h,s,l){
+	s/=100;
+	l/=100;
+	C=(1-Math.abs(2*l-1))*s;
+	hh=h/60;
+	X=C*(1-Math.abs(hh%2-1));
+	r=g=b=0;
+	if(hh>=0&&hh<1){r=C;g=X;}
+	else if(hh>=1&&hh<2){r=X;g=C;}
+	else if(hh>=2&&hh<3){g=C;b=X;}
+	else if(hh>=3&&hh<4){g=X;b=C;}
+	else if(hh>=4&&hh<5){r=X;b=C;}
+	else{r=C;b=X;}
+	m=l-C/2;
+	r+=m;g+=m;b+=m;
+	r*=255.0;g*=255.0;b*=255.0;
+	r=Math.round(r);
+	g=Math.round(g);
+	b=Math.round(b);
+
+	return [r,g,b];
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+</script>
